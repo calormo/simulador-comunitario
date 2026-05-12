@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Alarma VigicomNET</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    font-family: 'Inter', sans-serif;
+    background: #f0f2f5;
+    overflow: hidden;
+  }
+
+  .phone-frame {
+    max-width: 420px;
+    margin: 0 auto;
+    height: 100vh;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    background: #ffffff;
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ── Header ── */
+  .header {
+    background: #1a3a7a;
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-shrink: 0;
+    z-index: 10;
+  }
+  .header h1 {
+    color: #fff;
+    font-size: 1.35rem;
+    font-weight: 800;
+    letter-spacing: .3px;
+  }
+  .header-dots {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .header-dots span {
+    width: 5px; height: 5px;
+    background: #fff;
+    border-radius: 50%;
+  }
+
+  /* ── Main area (panic button) ── */
+  .main-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: #fff;
+    transition: filter .3s ease;
+  }
+  .main-area.dimmed { filter: brightness(.55); }
+
+  .panic-btn {
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 38% 36%, #f05050, #c62828 70%);
+    border: 10px solid #ffffff;
+    box-shadow:
+      0 0 0 6px #e53935,
+      0 8px 30px rgba(198,40,40,.45);
+    cursor: pointer;
+    position: relative;
+    transition: transform .12s ease, box-shadow .12s ease;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .panic-btn:active {
+    transform: scale(.94);
+    box-shadow:
+      0 0 0 4px #e53935,
+      0 2px 10px rgba(198,40,40,.35);
+  }
+
+  /* ── Open menu trigger (arrow at bottom) ── */
+  .open-menu-btn {
+    position: absolute;
+    bottom: 0;
+    left: 0; right: 0;
+    height: 48px;
+    background: #f5f5f5;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-top: 1px solid #e0e0e0;
+    z-index: 15;
+    transition: opacity .3s ease;
+  }
+  .open-menu-btn.hidden { opacity: 0; pointer-events: none; }
+  .open-menu-btn svg {
+    width: 28px; height: 28px;
+    fill: #1a3a7a;
+    transition: transform .2s ease;
+  }
+  .open-menu-btn:hover svg { transform: translateY(-3px); }
+
+  /* ── Bottom sheet (categories) ── */
+  .bottom-sheet {
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    background: #fff;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,.18);
+    padding: 10px 16px 28px;
+    transform: translateY(100%);
+    transition: transform .35s cubic-bezier(.4,.0,.2,1);
+    z-index: 20;
+  }
+  .bottom-sheet.open { transform: translateY(0); }
+
+  .sheet-handle {
+    width: 50px; height: 6px;
+    background: #bbb;
+    border-radius: 3px;
+    margin: 0 auto 16px;
+    cursor: pointer;
+    transition: background .2s ease;
+  }
+  .sheet-handle:hover { background: #888; }
+
+  .icons-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    justify-items: center;
+  }
+
+  .icon-btn {
+    width: 90px; height: 90px;
+    border-radius: 14px;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    background: transparent;
+    transition: transform .1s ease, box-shadow .1s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,.12);
+  }
+  .icon-btn:active {
+    transform: scale(.9);
+    box-shadow: 0 1px 3px rgba(0,0,0,.15);
+  }
+  .icon-btn img {
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    object-fit: cover;
+    pointer-events: none;
+  }
+
+  .icon-label {
+    font-size: .72rem;
+    color: #333;
+    text-align: center;
+    margin-top: 5px;
+    font-weight: 600;
+  }
+
+  .icon-cell {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ── Playing indicator ── */
+  .playing-indicator {
+    position: fixed;
+    top: 70px; left: 50%; transform: translateX(-50%);
+    background: #1a3a7a;
+    color: #fff;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-size: .85rem;
+    font-weight: 700;
+    z-index: 100;
+    opacity: 0;
+    transition: opacity .3s ease;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .playing-indicator.visible { opacity: 1; }
+
+  /* ripple */
+  @keyframes ripple {
+    0% { box-shadow: 0 0 0 0 rgba(229,57,53,.5); }
+    100% { box-shadow: 0 0 0 30px rgba(229,57,53,0); }
+  }
+  .panic-btn.pulse { animation: ripple .6s ease-out; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+
+  <!-- Header -->
+  <div class="header">
+    <h1>Alarma VigicomNET</h1>
+    <div class="header-dots"><span></span><span></span><span></span></div>
+  </div>
+
+  <!-- Main area with panic button -->
+  <div class="main-area" id="mainArea">
+    <div class="panic-btn" id="panicBtn" role="button" tabindex="0" aria-label="Botón de pánico"></div>
+
+    <!-- Arrow button to open menu -->
+    <button class="open-menu-btn" id="openMenuBtn" aria-label="Abrir menú de categorías">
+      <svg viewBox="0 0 24 24"><path d="M7.41 15.41L12 10.83l4.59 4.58L18 14l-6-6-6 6z"/></svg>
+    </button>
+  </div>
+
+  <!-- Playing indicator -->
+  <div class="playing-indicator" id="playingIndicator">▶ Reproduciendo...</div>
+
+  <!-- Bottom sheet with category icons -->
+  <div class="bottom-sheet" id="bottomSheet">
+    <div class="sheet-handle" id="sheetHandle" role="button" tabindex="0" aria-label="Cerrar menú"></div>
+    <div class="icons-grid">
+
+      <div class="icon-cell">
+        <button class="icon-btn" data-sound="audio2">
+          <img src="https://tecnocomingenieriasas.com/wp-content/uploads/2025/07/Icono-Medico-copia.png" alt="Médico">
+        </button>
+        <div class="icon-label">Médico</div>
+      </div>
+
+      <div class="icon-cell">
+        <button class="icon-btn" data-sound="audio3">
+          <img src="https://tecnocomingenieriasas.com/wp-content/uploads/2025/07/Icono-Incendio.png">
+        </button>
+        <div class="icon-label">Incendio</div>
+      </div>
+
+      <div class="icon-cell">
+        <button class="icon-btn" data-sound="audio7">
+          <img src="https://tecnocomingenieriasas.com/wp-content/uploads/2025/07/Icono-prueba-Sirena-e1753809627601.png" alt="Prueba Sirena">
+        </button>
+        <div class="icon-label">Prueba Sirena</div>
+      </div>
+
+      <div class="icon-cell">
+        <button class="icon-btn" data-sound="audio4">
+          <img src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/Icono-Accidente.png" alt="Accidente">
+        </button>
+        <div class="icon-label">Accidente</div>
+      </div>
+
+      <div class="icon-cell">
+        <button class="icon-btn" data-sound="audio5">
+          <img src="https://tecnocomingenieriasas.com/wp-content/uploads/2025/07/Icono-Agresion.png" alt="Agresión">
+        </button>
+        <div class="icon-label">Agresión</div>
+      </div>
+
+      <div class="icon-cell">
+        <button class="icon-btn" data-sound="audio6">
+          <img src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/Icono-Sospechoso.png" alt="Sospechoso">
+        </button>
+        <div class="icon-label">Sospechoso</div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<!-- Preloaded audio elements for reliable playback -->
+<audio id="audio1" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/001.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio2" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/002.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio3" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/003.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio4" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/004.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio5" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/005.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio6" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/006.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio7" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/007.mp3" type="audio/mpeg">
+</audio>
+<audio id="audio8" preload="auto">
+  <source src="https://tecnocomingenieriasas.com/wp-content/uploads/2026/05/008.mp3" type="audio/mpeg">
+</audio>
+
+
+
+
+
+<script>
+  const panicBtn     = document.getElementById('panicBtn');
+  const bottomSheet  = document.getElementById('bottomSheet');
+  const mainArea     = document.getElementById('mainArea');
+  const indicator    = document.getElementById('playingIndicator');
+  const openMenuBtn  = document.getElementById('openMenuBtn');
+  const sheetHandle  = document.getElementById('sheetHandle');
+
+  let currentAudio = null;
+  let hideTimeout = null;
+
+  // ── Helper: play a sound by audio element id ──
+  function playSound(audioId, label) {
+    const audioEl = document.getElementById(audioId);
+    if (!audioEl) return;
+
+    // Stop any currently playing audio
+    if (currentAudio && currentAudio !== audioEl) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+    if (currentAudio === audioEl) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+
+    currentAudio = audioEl;
+
+    indicator.textContent = '▶ ' + (label || 'Reproduciendo...');
+    indicator.classList.add('visible');
+
+    audioEl.play().catch(err => {
+      console.warn('Audio playback failed:', err);
+      indicator.textContent = '⚠ Error al reproducir';
+    });
+
+    if (hideTimeout) clearTimeout(hideTimeout);
+
+    audioEl.onended = () => {
+      indicator.classList.remove('visible');
+      currentAudio = null;
+    };
+
+    hideTimeout = setTimeout(() => {
+      indicator.classList.remove('visible');
+    }, 60000);
+  }
+
+  // ── 1) Panic button plays sound 001 ──
+  panicBtn.addEventListener('click', () => {
+    panicBtn.classList.add('pulse');
+    setTimeout(() => panicBtn.classList.remove('pulse'), 600);
+    playSound('audio1', 'ALARMA ACTIVADA');
+  });
+
+  // ── 2a) Arrow button at bottom opens the menu ──
+  openMenuBtn.addEventListener('click', () => {
+    bottomSheet.classList.add('open');
+    mainArea.classList.add('dimmed');
+    openMenuBtn.classList.add('hidden');
+  });
+
+  // ── 2b) Handle bar at top of sheet closes the menu ──
+  sheetHandle.addEventListener('click', () => {
+    bottomSheet.classList.remove('open');
+    mainArea.classList.remove('dimmed');
+    openMenuBtn.classList.remove('hidden');
+  });
+
+  // ── 3) Icon buttons play their respective sounds ──
+  document.querySelectorAll('.icon-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const audioId = btn.dataset.sound;
+      const label = btn.getAttribute('aria-label') || 'Reproduciendo...';
+      if (!audioId) return;
+      playSound(audioId, label);
+    });
+  });
+</script>
+
+</body>
+</html>
